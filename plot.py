@@ -2,64 +2,92 @@
 # requires-python = ">=3.10"
 # dependencies = ["matplotlib"]
 # ///
-
-"""
-Read the file in data/, make one picture, save it to out/.
+"""Plot the Observatory's daily rainfall record.
 
     uv run plot.py
-
-Three parts, and you will replace all three: rows() reads the file the way *your*
-file needs reading, the loop in main() picks the numbers out of it, and the plot at
-the bottom is the transformation you chose. Print before you plot.
 """
 
 import csv
+from datetime import date, timedelta
 from pathlib import Path
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 
-FILE = "hko-daily-mean-temperature-2026.csv"   # CHANGE ME: the same name as in fetch.py
-PICTURE = "plot.png"                           # what goes into out/, and into the README
-
+FILE = "daily_HKO_RF_2026.csv"
+PICTURE = "plot.png"
 HERE = Path(__file__).parent
 DATA = HERE / "data" / FILE
 OUT = HERE / "out"
 
 
-def rows(path):
-    """The file as a list of lists, one per line. The Observatory puts three lines
-    of titles above the table and a legend below it, so keep only the lines that
-    start with a year."""
-    kept = []
+def read_observations(path: Path) -> list[tuple[date, float, bool]]:
+    """Return (date, rainfall_mm, is_trace) records from the HKO CSV."""
+    observations = []
     with path.open(encoding="utf-8-sig", newline="") as handle:
-        for line in csv.reader(handle):
-            if line and line[0].isdigit():
-                kept.append(line)
-    return kept
+        for row in csv.reader(handle):
+            if not row or not row[0].isdigit():
+                continue
+            year, month, day = (int(part) for part in row[:3])
+            raw_value = row[3].strip()
+            if raw_value == "***":
+                continue
+            is_trace = raw_value.lower() == "trace"
+            amount = 0.0 if is_trace else float(raw_value)
+            observations.append((date(year, month, day), amount, is_trace))
+    return observations
 
 
-def main():
-    table = rows(DATA)
-    print(f"{DATA.name}: {len(table)} rows. The first one: {table[0]}")
+def main() -> None:
+    observations = read_observations(DATA)
+    if not observations:
+        raise ValueError(f"No daily observations found in {DATA}")
 
-    days, values = [], []
-    for i, (year, month, day, value, quality) in enumerate(table):   # the loop over the numbers
-        if value == "***":                   # the Observatory's word for "missing"
-            continue
-        days.append(i + 1)
-        values.append(float(value))          # it arrived as text; make it a number
-    print(f"{len(values)} values, from {min(values)} to {max(values)}")
+    dates = [item[0] for item in observations]
+    rainfall = [item[1] for item in observations]
+    trace_dates = [item[0] for item in observations if item[2]]
+    peak_index = max(range(len(rainfall)), key=rainfall.__getitem__)
+    peak_date, peak_mm = dates[peak_index], rainfall[peak_index]
+    print(f"{DATA.name}: {len(observations)} dated records through {dates[-1]}.")
+    print(f"Peak recorded rainfall: {peak_mm:g} mm on {peak_date.day} {peak_date:%b}.")
+    print(f"Trace-only days shown as zero-height bars: {len(trace_dates)}.")
 
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(days, values, color="#d6591d", linewidth=1.5)
-    ax.set_xlabel("day of 2026")
-    ax.set_ylabel("daily mean temperature, °C")
-    ax.set_title("Hong Kong Observatory, 2026 so far")
-    fig.tight_layout()
+    fig, ax = plt.subplots(figsize=(12, 5.5), facecolor="#f7fafc")
+    ax.set_facecolor("#f7fafc")
+    ax.bar(dates, rainfall, width=0.85, color="#168aad", edgecolor="none", zorder=3)
+    if trace_dates:
+        ax.scatter(trace_dates, [0.6] * len(trace_dates), marker="|", s=44,
+                   linewidths=1.2, color="#6c8293", label="Trace (<0.05 mm)", zorder=4)
+        ax.legend(frameon=False, loc="upper left")
+
+    ax.annotate(f"{peak_mm:g} mm\n{peak_date.day} {peak_date:%b}",
+                xy=(peak_date, peak_mm), xytext=(10, 10), textcoords="offset points",
+                fontsize=9, color="#123047", fontweight="bold",
+                arrowprops={"arrowstyle": "-", "color": "#526b7a", "lw": 0.8})
+    ax.set_title("Hong Kong rain comes in bursts", loc="left", pad=18,
+                 fontsize=18, fontweight="bold", color="#123047")
+    ax.text(0, 1.02,
+            f"Daily total at the Hong Kong Observatory · 2026 through {dates[-1]:%d %b} · peak {peak_mm:g} mm",
+            transform=ax.transAxes, fontsize=9.5, color="#526b7a")
+    ax.set_ylabel("Daily rainfall (mm)", color="#344c5c")
+    ax.set_xlabel("2026", color="#344c5c", labelpad=10)
+    ax.xaxis.set_major_locator(mdates.MonthLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+    ax.set_xlim(date(dates[0].year, 1, 1), dates[-1] + timedelta(days=2))
+    ax.set_ylim(bottom=0)
+    ax.grid(axis="y", color="#dbe5eb", linewidth=0.8, zorder=0)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+    ax.spines["bottom"].set_color("#b7c7d1")
+    ax.tick_params(axis="both", colors="#526b7a", length=0, pad=7)
+    fig.text(0.01, 0.015,
+             "Source: Hong Kong Observatory · Trace means less than 0.05 mm; plotted at zero.",
+             fontsize=8, color="#637989")
+    fig.tight_layout(rect=(0, 0.04, 1, 0.97))
 
     OUT.mkdir(exist_ok=True)
-    fig.savefig(OUT / PICTURE, dpi=150)
-    print(f"saved out/{PICTURE}")
+    destination = OUT / PICTURE
+    fig.savefig(destination, dpi=180, facecolor=fig.get_facecolor())
+    print(f"Saved out/{PICTURE}")
     plt.show()
 
 
