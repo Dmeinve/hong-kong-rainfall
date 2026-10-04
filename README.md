@@ -12,7 +12,7 @@ The data comes from the [Hong Kong Observatory's daily total rainfall CSV](https
 
 ## What the picture shows
 
-Each bar is one day's rainfall, so wet spells and individual downpours stand out against the dry-day baseline. The tallest bar is labelled with its date and amount. Trace observations are shown as small marks and treated as zero-height bars; that keeps their exact amount honest because the source only gives an upper bound, not a precise number. The chart ends at the last dated row in the file. It shows one station and one year-to-date snapshot, so it cannot describe rainfall differences across Hong Kong or establish a long-term climate trend.
+Each bar is one day's rainfall, so wet spells and individual downpours stand out against the dry-day baseline. The tallest bar is labelled with its date and amount. Trace observations are shown as small marks and treated as zero-height bars; that keeps their exact amount honest because the source only gives an upper bound, not a precise number. The chart ends at the last dated row in the file. It shows one station and one year-to-date snapshot, so it cannot describe rainfall differences across Hong Kong or establish a long-term climate trend. The highest daily total is 122.6 mm on 15 June; rainfall is concentrated in a few sharp peaks rather than spread evenly across the months.
 
 ## Run it
 
